@@ -1,0 +1,56 @@
+#!/bin/env python
+
+"""
+ Check Backup Differnece - Muhammad Yousri - 5/8/2019
+ Works Only on Python 3 For Now
+"""
+
+import os
+import sys
+import datetime
+import subprocess
+
+# Function to get directory size
+def get_dir_size(path):
+    return subprocess.check_output(['du', '-s', path]).split()[0].decode('utf-8')
+
+
+
+
+# Get users
+users = os.listdir("/var/cpanel/users/")
+
+# Intialize Lists to store accounts with problems
+no_backup = []
+bad_backup = {}
+
+# Get Backup_size/Home_size for every user and if difference is big added to "bad_backup" list , if not existing add to no_backup list
+for user in users:
+    path_home = "/home/{}".format(user)
+    path_backup = "/backup/{}/accounts/{}".format(datetime.date.today(), user)
+    if os.path.exists(path_home) is True:
+        if os.path.exists(path_backup) is True:
+            size_backup = int(get_dir_size(path_backup))
+            size_home = int(get_dir_size(path_home))
+            diff = (int(size_home) - int(size_backup)) / 1000000
+            #print("diff size for {} is {}G" .format(user, diff))
+            if abs(diff) > 5:
+                bad_backup[user] = diff
+        else:
+            no_backup.append(user)
+
+# Output for Nagstamon
+
+if len(no_backup) == 0 and len(bad_backup) == 0:
+    print("Backup OK")
+    sys.exit(0)
+elif len(no_backup) > 0 and len(bad_backup) > 0:
+    print("Critical: The Following accounts has no backup today {} and the following accounts has different or incomplete backup {}".format(
+        no_backup, bad_backup))
+    sys.exit(1)
+elif len(no_backup) == 0 and len(bad_backup) > 0:
+    print("Critical: The following accounts has different or incomplete backup {}".format(bad_backup))
+    sys.exit(1)
+elif len(no_backup) > 0 and len(bad_backup) == 0:
+    print("Critical: The Following accounts has no backup today {}".format(no_backup))
+    sys.exit(1)
